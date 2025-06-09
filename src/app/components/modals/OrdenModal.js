@@ -20,7 +20,9 @@ export default function OrdenModal({
   fechaLimiteFormatted
 }) {
   const [descripcionLocal, setDescripcionLocal] = useState("");
+  const [numeroFacturaLocal, setNumeroFacturaLocal] = useState("");
   const timeoutRef = useRef(null);
+  const facturaTimeoutRef = useRef(null);
 
   // Calcular fecha límite dentro del modal
   const getFechaLimite = () => {
@@ -37,13 +39,17 @@ export default function OrdenModal({
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
+      if (facturaTimeoutRef.current) {
+        clearTimeout(facturaTimeoutRef.current);
+      }
     };
   }, []);
 
-  // Sincronizar descripción local con formulario
+  // Sincronizar estados locales con formulario
   useEffect(() => {
     setDescripcionLocal(formularioOrden.descripcion || "");
-  }, [formularioOrden.descripcion]);
+    setNumeroFacturaLocal(formularioOrden.numeroFactura || "");
+  }, [formularioOrden.descripcion, formularioOrden.numeroFactura]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -60,6 +66,24 @@ export default function OrdenModal({
         setFormularioOrden(prev => ({
           ...prev,
           descripcion: value,
+        }));
+      }, 300);
+      
+      return;
+    }
+
+    // Manejo especial para número de factura con debounce
+    if (name === 'numeroFactura') {
+      setNumeroFacturaLocal(value);
+      
+      if (facturaTimeoutRef.current) {
+        clearTimeout(facturaTimeoutRef.current);
+      }
+      
+      facturaTimeoutRef.current = setTimeout(() => {
+        setFormularioOrden(prev => ({
+          ...prev,
+          numeroFactura: value,
         }));
       }, 300);
       
@@ -302,24 +326,45 @@ export default function OrdenModal({
             </div>
           )}
 
-          {/* Factura */}
+          {/* Factura - ACTUALIZADO PARA v2.0 */}
           <div className="flex flex-col">
             <label className="block text-gray-700 mb-1">Factura</label>
             <div className="flex items-center space-x-4 py-2">
               <label className="inline-flex items-center">
                 <input
                   type="checkbox"
-                  name="factura"
-                  checked={formularioOrden.factura}
+                  name="tieneFactura"
+                  checked={formularioOrden.tieneFactura}
                   onChange={handleInputChange}
                   className="form-checkbox h-5 w-5 text-red-600 cursor-pointer"
                 />
                 <span className="ml-2">
-                  {formularioOrden.factura ? "Factura adjuntada" : "Sin factura"}
+                  {formularioOrden.tieneFactura ? "Factura adjuntada" : "Sin factura"}
                 </span>
               </label>
             </div>
           </div>
+
+          {/* Número de Factura - NUEVO CAMPO PARA v2.0 */}
+          {formularioOrden.tieneFactura && (
+            <div>
+              <label className="block text-gray-700 mb-1">Número de Factura</label>
+              <input
+                type="text"
+                name="numeroFactura"
+                value={numeroFacturaLocal}
+                onChange={handleInputChange}
+                className="border border-gray-300 rounded px-3 py-2 w-full"
+                placeholder="Ej: FAC-001-2025"
+                maxLength={50}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {numeroFacturaLocal ? 
+                  `${numeroFacturaLocal.length}/50 caracteres` : 
+                  "0/50 caracteres"}
+              </p>
+            </div>
+          )}
 
           {/* Estado */}
           <div>

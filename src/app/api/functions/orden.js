@@ -1,3 +1,4 @@
+// src/app/api/functions/orden.js
 import { pool } from '@/app/api/lib/db';
 
 export async function getOrden() {
@@ -11,7 +12,8 @@ export async function getOrden() {
         o.Inventariable,
         o.Cantidad,
         o.Importe,
-        o.Factura, 
+        o.tiene_factura as Factura,
+        o.numero_factura,
         d.Nombre AS Departamento,
         p.Nombre AS Proveedor,
         oi.Num_inversion,

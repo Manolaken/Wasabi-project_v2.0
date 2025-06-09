@@ -37,19 +37,22 @@ export default function OrdenesCompraClient({
   const [modalMode, setModalMode] = useState("add"); // 'add' o 'edit'
   const [formError, setFormError] = useState("");
 
-  // Añadir este nuevo useEffect para normalizar el campo Factura en todas las órdenes
+  // Añadir este nuevo useEffect para normalizar el campo tiene_factura en todas las órdenes
   useEffect(() => {
     if (initialOrdenes) {
       console.log("Datos originales de órdenes:", initialOrdenes);
 
       const ordenesNormalizadas = initialOrdenes.map(orden => {
-        // Verificar el valor de Factura que llega inicialmente
+        // Verificar el valor de Factura que llega inicialmente (ahora viene como tiene_factura)
         console.log(`Orden ${orden.idOrden} - Factura original:`, orden.Factura);
 
         return {
           ...orden,
           // Asegurarse de que Factura sea un valor numérico o booleano
-          Factura: orden.Factura === 1 || orden.Factura === true ? 1 : 0
+          Factura: orden.Factura === 1 || orden.Factura === true ? 1 : 0,
+          // Asegurar compatibilidad con el nuevo campo
+          tiene_factura: orden.Factura === 1 || orden.Factura === true ? 1 : 0,
+          numero_factura: orden.numero_factura || null
         };
       });
 
@@ -89,22 +92,24 @@ export default function OrdenesCompraClient({
   // Hook de notificaciones
   const { addNotification, notificationComponents } = useNotifications();
 
-  // Estado del formulario
+  // Estado del formulario - ACTUALIZADO PARA v2.0
   const [formularioOrden, setFormularioOrden] = useState({
     idOrden: null,
     numero: "",
-    esInversion: false, // ← ASEGURAR que siempre tenga un valor inicial definido
+    esInversion: false,
     numInversion: "",
     importe: "",
     fecha: "",
     descripcion: "",
-    inventariable: false, // ← ASEGURAR que siempre tenga un valor inicial definido
+    inventariable: false,
     cantidad: "",
     departamento: "",
     proveedor: "",
-    factura: false,
+    tieneFactura: false, // Campo actualizado para v2.0
+    numeroFactura: "", // Nuevo campo para v2.0
     estadoOrden: "En proceso",
   });
+
   // Calcular la fecha límite (5 años atrás)
   const getFechaLimite = () => {
     const hoy = new Date();
@@ -116,14 +121,13 @@ export default function OrdenesCompraClient({
   const fechaLimite = getFechaLimite();
   const fechaLimiteFormatted = fechaLimite.toISOString().split('T')[0];
 
-  // 3. Asegurarnos que el useEffect para establecer el departamento del Jefe funciona correctamente
+  // Asegurarnos que el useEffect para establecer el departamento del Jefe funciona correctamente
   useEffect(() => {
     // Si es Jefe de Departamento, establecer el filtro automáticamente
     if (userRole === "Jefe de Departamento" && departamento) {
       setFilterDepartamento(departamento);
 
       // También hay que asegurar que se mantenga esta selección
-      // Esto es importante por si la app se reinicia o cambia de estado
       const handleBeforeUnload = () => {
         localStorage.setItem('selectedDepartamento', departamento);
       };
@@ -210,8 +214,7 @@ export default function OrdenesCompraClient({
     // Determinar el siguiente número
     let siguienteNumero = inversionesDepartamento.length + 1;
 
-    // CORREGIDO: Formato numérico de 7 dígitos: [ID_DEPARTAMENTO][000000X]
-    // Por ejemplo: 1000001, 2000001, etc.
+    // Formato numérico de 7 dígitos: [ID_DEPARTAMENTO][000000X]
     const numeroInversion = parseInt(`${idDepartamento}${siguienteNumero.toString().padStart(6, '0')}`);
 
     return numeroInversion;
@@ -252,12 +255,11 @@ export default function OrdenesCompraClient({
     try {
       const date = new Date(dateString);
       return {
-        mes: (date.getMonth() + 1).toString(), // JavaScript cuenta meses desde 0
+        mes: (date.getMonth() + 1).toString(),
         año: date.getFullYear().toString()
       };
     } catch (error) {
       return { mes: '', año: '' };
-
     }
   }
 
@@ -270,19 +272,14 @@ export default function OrdenesCompraClient({
 
   // Obtener fechas filtradas según las selecciones actuales
   const fechasFiltradas = useMemo(() => {
-    // Filtrar órdenes según los filtros de fecha seleccionados
     const ordenesFiltradas = ordenes.filter(orden => {
       if (!orden.Fecha) return false;
-
       const { mes, año } = getDateParts(orden.Fecha);
-
       if (filterMes && mes !== filterMes) return false;
       if (filterAño && año !== filterAño) return false;
-
       return true;
     });
 
-    // Extraer meses y años disponibles de las órdenes filtradas
     const meses = new Set();
     const años = new Set();
 
@@ -300,10 +297,8 @@ export default function OrdenesCompraClient({
 
   // Obtener proveedores filtrados por departamento
   const proveedoresFiltrados = useMemo(() => {
-    // Para todos los roles, mostrar solo proveedores que estén en órdenes
     let proveedoresDisponibles = [];
 
-    // Si hay departamento seleccionado, mostrar solo proveedores de ese departamento
     if (filterDepartamento) {
       proveedoresDisponibles = proveedores.filter(proveedor => {
         return initialOrdenes.some(orden =>
@@ -311,8 +306,6 @@ export default function OrdenesCompraClient({
         );
       });
     } else {
-      // Si no hay departamento seleccionado, mostrar todos los proveedores que aparecen en órdenes
-      // Esto es para Admin/Contable cuando no filtran por departamento
       const proveedoresEnOrdenes = new Set();
       initialOrdenes.forEach(orden => {
         proveedoresEnOrdenes.add(orden.Proveedor);
@@ -328,7 +321,6 @@ export default function OrdenesCompraClient({
 
   // Reset proveedor cuando cambia departamento
   useMemo(() => {
-    // Solo resetear el proveedor para el rol Jefe de Departamento
     if (userRole === "Jefe de Departamento") {
       setFilterProveedor("");
     }
@@ -337,7 +329,7 @@ export default function OrdenesCompraClient({
   // Filtrar órdenes según los criterios de búsqueda y filtrado
   const filteredOrdenes = useMemo(() => {
     return ordenes.filter((orden) => {
-      // Filtro por término de búsqueda (número, descripción)
+      // Filtro por término de búsqueda
       const matchesSearch =
         searchTerm === "" ||
         orden.Num_orden?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -365,9 +357,7 @@ export default function OrdenesCompraClient({
       let matchesFecha = true;
       if (filterMes || filterAño) {
         if (!orden.Fecha) return false;
-
         const { mes, año } = getDateParts(orden.Fecha);
-
         if (filterMes && mes !== filterMes) matchesFecha = false;
         if (filterAño && año !== filterAño) matchesFecha = false;
       }
@@ -376,14 +366,12 @@ export default function OrdenesCompraClient({
     });
   }, [ordenes, searchTerm, filterDepartamento, filterProveedor, filterInventariable, filterMes, filterAño, filterEstado]);
 
-  // NUEVO: Preparar datos para Excel según órdenes seleccionadas
+  // Preparar datos para Excel según órdenes seleccionadas
   const prepareExportData = () => {
-    // Si no hay órdenes seleccionadas, usar todas las filtradas
     const ordenesToExport = selectedOrdenes.length > 0
       ? ordenes.filter(o => selectedOrdenes.includes(o.idOrden))
       : filteredOrdenes;
 
-    // Crear la estructura de datos para Excel
     const data = ordenesToExport.map(orden => ({
       'Número Orden': orden.Num_orden || '',
       'Descripción': orden.Descripcion || '',
@@ -394,28 +382,25 @@ export default function OrdenesCompraClient({
       'Departamento': orden.Departamento || '',
       'Proveedor': orden.Proveedor || '',
       'Número Inversión': orden.Num_inversion || '',
-      'Factura': formatInventariable(orden.Factura),
+      'Factura': formatInventariable(orden.Factura || orden.tiene_factura),
+      'Número Factura': orden.numero_factura || '',
       'Estado': orden.Estado || 'En proceso'
     }));
 
     return data;
   };
 
-  // NUEVO: Función para generar Excel
   // Función para generar CSV
   const generateExcel = async () => {
     try {
       setIsGeneratingExcel(true);
 
-      // Crear cabeceras del CSV
       const headers = Object.keys(exportData[0]);
       let csvContent = headers.join(',') + '\n';
 
-      // Añadir filas de datos
       exportData.forEach(row => {
         const values = headers.map(header => {
           const cellValue = row[header] || '';
-          // Escapar comillas y encerrar en comillas cualquier valor que contenga comas
           return typeof cellValue === 'string' && (cellValue.includes(',') || cellValue.includes('"'))
             ? `"${cellValue.replace(/"/g, '""')}"`
             : cellValue;
@@ -423,13 +408,9 @@ export default function OrdenesCompraClient({
         csvContent += values.join(',') + '\n';
       });
 
-      // Convertir a Blob para descargar
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-
-      // Crear URL para previsualización
       const url = URL.createObjectURL(blob);
 
-      // Configurar opciones para descarga
       return {
         url,
         blob,
@@ -445,13 +426,12 @@ export default function OrdenesCompraClient({
     }
   };
 
-  // NUEVO: Función para descargar el Excel generado
+  // Función para descargar el Excel generado
   const downloadExcel = async () => {
     const excelData = await generateExcel();
 
     if (!excelData) return;
 
-    // Crear enlace para descarga y hacer clic
     const downloadLink = document.createElement('a');
     downloadLink.href = excelData.url;
     downloadLink.download = excelData.filename;
@@ -459,42 +439,33 @@ export default function OrdenesCompraClient({
     downloadLink.click();
     document.body.removeChild(downloadLink);
 
-    // Liberar URL
     URL.revokeObjectURL(excelData.url);
-
-    // Cerrar modal
     setShowExportModal(false);
-
     addNotification("Archivo Excel descargado correctamente", "success");
   };
 
-  // NUEVO: Manejar apertura del modal de exportación
+  // Manejar apertura del modal de exportación
   const handleExportClick = () => {
-    // Si no hay órdenes seleccionadas y el usuario presionó el botón Exportar
     if (selectedOrdenes.length === 0) {
-      // Mostrar alerta para seleccionar órdenes
       addNotification("Por favor, selecciona al menos una orden de compra para exportar", "warning");
       return;
     }
 
-    // Si hay órdenes filtradas pero ninguna seleccionada específicamente
     if (selectedOrdenes.length === 0 && filteredOrdenes.length === 0) {
       addNotification("No hay órdenes para exportar", "warning");
       return;
     }
 
-    // Preparar datos para exportación
     const data = prepareExportData();
     setExportData(data);
 
-    // Generar nombre de archivo con fecha actual
     const today = new Date();
     const formattedDate = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
     setExcelFileName(`ordenes_compra_${formattedDate}`);
 
-    // Mostrar modal
     setShowExportModal(true);
   };
+
   // Toggle selección de orden
   const toggleSelectOrden = (ordenId) => {
     if (selectedOrdenes.includes(ordenId)) {
@@ -525,20 +496,18 @@ export default function OrdenesCompraClient({
     setSelectedOrdenes([]);
     setFilterInventariable("");
     setFilterEstado("");
-
   };
 
   // Abrir modal de añadir orden
   const handleOpenAddModal = () => {
     limpiarFormulario();
 
-    // Si es Jefe de Departamento, preseleccionamos su departamento
     if (userRole === "Jefe de Departamento" && departamento) {
       setFormularioOrden(prev => ({
         ...prev,
         departamento: departamento,
-        esInversion: false, // ← Asegurar que esté definido
-        inventariable: false // ← Asegurar que esté definido
+        esInversion: false,
+        inventariable: false
       }));
     }
 
@@ -546,25 +515,26 @@ export default function OrdenesCompraClient({
     setShowModal(true);
   };
 
-  // Añade la propiedad estadoOrden al objeto
+  // Abrir modal de editar orden - ACTUALIZADO PARA v2.0
   const handleOpenEditModal = (orden) => {
     const esInventariable = !!(orden.Inventariable === 1 || orden.Inventariable === true);
     const esInversion = !!(orden.Num_inversion && orden.Num_inversion !== null);
-    const tieneFactura = !!(orden.Factura === 1 || orden.Factura === true);
+    const tieneFactura = !!(orden.Factura === 1 || orden.Factura === true || orden.tiene_factura === 1);
 
     setFormularioOrden({
       idOrden: orden.idOrden,
       numero: orden.Num_orden || "",
-      esInversion: esInversion, // ← Garantiza que sea booleano
+      esInversion: esInversion,
       numInversion: orden.Num_inversion || "",
       importe: orden.Importe || "",
       fecha: formatDateForInput(orden.Fecha) || "",
       descripcion: orden.Descripcion || "",
-      inventariable: esInventariable, // ← Garantiza que sea booleano
+      inventariable: esInventariable,
       cantidad: orden.Cantidad || "",
       departamento: orden.Departamento || "",
       proveedor: orden.Proveedor || "",
-      factura: tieneFactura,
+      tieneFactura: tieneFactura, // Campo actualizado para v2.0
+      numeroFactura: orden.numero_factura || "", // Nuevo campo para v2.0
       estadoOrden: orden.Estado || "En proceso",
     });
     setModalMode("edit");
@@ -591,9 +561,7 @@ export default function OrdenesCompraClient({
     setFormError("");
   };
 
-  // Limpiar el formulario
-  // Añade la propiedad estadoOrden al objeto que se resetea
-  // Actualizar el estado inicial del formulario
+  // Limpiar el formulario - ACTUALIZADO PARA v2.0
   const limpiarFormulario = () => {
     setFormularioOrden({
       idOrden: null,
@@ -601,13 +569,14 @@ export default function OrdenesCompraClient({
       esInversion: false,
       numInversion: "",
       importe: "",
-      fecha: formatDateForInput(new Date()), // fecha actual por defecto
+      fecha: formatDateForInput(new Date()),
       descripcion: "",
       inventariable: false,
       cantidad: "",
       departamento: "",
       proveedor: "",
-      factura: false,
+      tieneFactura: false, // Campo actualizado para v2.0
+      numeroFactura: "", // Nuevo campo para v2.0
       estadoOrden: "En proceso",
     });
     setFormError("");
@@ -617,16 +586,14 @@ export default function OrdenesCompraClient({
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    // Para inputs de checkbox - asegurar que siempre sean booleanos
     if (type === 'checkbox') {
       setFormularioOrden(prev => ({
         ...prev,
-        [name]: Boolean(checked), // ← Asegurar que sea booleano
+        [name]: Boolean(checked),
       }));
       return;
     }
 
-    // Para todos los demás inputs
     setFormularioOrden(prev => ({
       ...prev,
       [name]: value,
@@ -647,7 +614,6 @@ export default function OrdenesCompraClient({
       setFormError("Por favor, ingresa el importe");
       return false;
     }
-    // NUEVA VALIDACIÓN: Importe debe ser mayor que 0
     if (parseFloat(formularioOrden.importe) <= 0) {
       setFormError("El importe debe ser mayor que 0");
       return false;
@@ -664,7 +630,6 @@ export default function OrdenesCompraClient({
       setFormError("Por favor, ingresa la cantidad");
       return false;
     }
-    // NUEVA VALIDACIÓN: Cantidad debe ser mayor que 0
     if (parseInt(formularioOrden.cantidad) <= 0) {
       setFormError("La cantidad debe ser mayor que 0");
       return false;
@@ -684,7 +649,7 @@ export default function OrdenesCompraClient({
     return true;
   };
 
-  // Guardar orden
+  // Guardar orden - ACTUALIZADO PARA v2.0
   const handleGuardarOrden = async () => {
     if (!validarFormulario()) return;
 
@@ -704,7 +669,6 @@ export default function OrdenesCompraClient({
         throw new Error("No se encontró el departamento o proveedor seleccionado");
       }
 
-      // Encontrar el ID del estado según su tipo
       const estadoSeleccionado = estadosOrden.find(
         estado => estado.tipo === formularioOrden.estadoOrden
       );
@@ -713,7 +677,7 @@ export default function OrdenesCompraClient({
         throw new Error("No se encontró el estado seleccionado");
       }
 
-      // Preparar los datos base para enviar
+      // Preparar los datos base para enviar - ACTUALIZADO PARA v2.0
       const ordenData = {
         Num_orden: formularioOrden.numero || generarNumeroOrden(),
         Importe: parseFloat(formularioOrden.importe),
@@ -724,22 +688,17 @@ export default function OrdenesCompraClient({
         id_DepartamentoFK: departamentoSeleccionado.id_Departamento,
         id_ProveedorFK: proveedorSeleccionado.idProveedor,
         id_UsuarioFK: 1, // TODO: Obtener el usuario actual de la sesión
-        Factura: formularioOrden.factura ? 1 : 0,
+        tiene_factura: formularioOrden.tieneFactura ? 1 : 0, // Campo actualizado para v2.0
+        numero_factura: formularioOrden.tieneFactura ? formularioOrden.numeroFactura : null, // Nuevo campo para v2.0
         id_EstadoOrdenFK: estadoSeleccionado.id_EstadoOrden,
       };
 
       const esInversion = formularioOrden.esInversion && formularioOrden.numInversion && formularioOrden.numInversion.toString().trim() !== '';
 
       if (esInversion) {
-        // ES UNA INVERSIÓN
         ordenData.Num_inversion = formularioOrden.numInversion;
-        ordenData.id_InversionFK = null; // El backend lo calculará
-        ordenData.id_PresupuestoFK = null;
       } else {
-        // ES UNA ORDEN NORMAL (NO INVERSIÓN)
         ordenData.Num_inversion = null;
-        ordenData.id_InversionFK = null;
-        ordenData.id_PresupuestoFK = null; // El backend lo calculará
       }
 
       let response;
@@ -806,14 +765,16 @@ export default function OrdenesCompraClient({
               Proveedor: formularioOrden.proveedor,
               Num_inversion: esInversion ? formularioOrden.numInversion : null,
               Estado: formularioOrden.estadoOrden,
-              Factura: formularioOrden.factura ? 1 : 0, // Añadir esta línea
+              Factura: formularioOrden.tieneFactura ? 1 : 0, // Mantener compatibilidad
+              tiene_factura: formularioOrden.tieneFactura ? 1 : 0, // Campo v2.0
+              numero_factura: formularioOrden.tieneFactura ? formularioOrden.numeroFactura : null, // Campo v2.0
             }
             : orden
         ));
       } else if (modalMode === "add") {
-        // NUEVA FUNCIONALIDAD: Actualizar estado local cuando se añade una nueva orden
+        // Actualizar estado local cuando se añade una nueva orden
         const nuevaOrden = {
-          idOrden: responseData.insertedId || Date.now(), // Usar ID del servidor si está disponible
+          idOrden: responseData.insertedId || Date.now(),
           Num_orden: ordenData.Num_orden,
           Importe: ordenData.Importe,
           Fecha: ordenData.Fecha,
@@ -824,12 +785,14 @@ export default function OrdenesCompraClient({
           Proveedor: formularioOrden.proveedor,
           Num_inversion: esInversion ? formularioOrden.numInversion : null,
           Estado: formularioOrden.estadoOrden,
-          Factura: formularioOrden.factura ? 1 : 0,
+          Factura: formularioOrden.tieneFactura ? 1 : 0, // Mantener compatibilidad
+          tiene_factura: formularioOrden.tieneFactura ? 1 : 0, // Campo v2.0
+          numero_factura: formularioOrden.tieneFactura ? formularioOrden.numeroFactura : null, // Campo v2.0
         };
         setOrdenes([...ordenes, nuevaOrden]);
       }
 
-      // Recargar órdenes desde servidor para garantizar consistencia (pero sin bloquear la UI)
+      // Recargar órdenes desde servidor para garantizar consistencia
       fetch("/api/getOrden")
         .then(response => {
           if (response.ok) {
@@ -878,7 +841,6 @@ export default function OrdenesCompraClient({
     setIsLoading(true);
 
     try {
-      // Cambiar a POST con un parámetro de acción
       const response = await fetch("/api/getOrden/eliminar", {
         method: "POST",
         headers: {
@@ -895,7 +857,6 @@ export default function OrdenesCompraClient({
         throw new Error(errorMessage);
       }
 
-      // Procesar respuesta
       let data;
       try {
         data = await response.json();
@@ -908,7 +869,6 @@ export default function OrdenesCompraClient({
       setOrdenes(ordenes.filter((o) => !selectedOrdenes.includes(o.idOrden)));
       setSelectedOrdenes([]);
 
-      // Mostrar notificación de éxito
       addNotification(
         `${data?.deletedCount || selectedOrdenes.length} orden(es) eliminadas correctamente`,
         "success"
@@ -925,26 +885,12 @@ export default function OrdenesCompraClient({
   const handleMesChange = (e) => {
     const nuevoMes = e.target.value;
     setFilterMes(nuevoMes);
-
-    // Si hay un mes seleccionado, filtrar años disponibles para ese mes
-    if (nuevoMes) {
-      // No reseteamos los otros filtros para permitir refinamiento
-    } else {
-      // Si se limpia el mes, mantener los filtros de año
-    }
   };
 
   // Manejar cambio en filtro de año
   const handleAñoChange = (e) => {
     const nuevoAño = e.target.value;
     setFilterAño(nuevoAño);
-
-    // Si hay un año seleccionado, filtrar meses disponibles para ese año
-    if (nuevoAño) {
-      // No reseteamos los otros filtros para permitir refinamiento
-    } else {
-      // Si se limpia el año, mantener los filtros de mes
-    }
   };
 
   // Formatear nombre de mes
@@ -982,7 +928,7 @@ export default function OrdenesCompraClient({
         <h2 className="text-xl text-gray-400">Departamento {departamento}</h2>
       </div>
 
-      {/* Filtros de fecha - NUEVO */}
+      {/* Filtros de fecha */}
       <div className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="relative">
           <label className="block text-gray-700 text-sm mb-1">Mes</label>
@@ -1085,9 +1031,8 @@ export default function OrdenesCompraClient({
             value={filterDepartamento}
             onChange={(e) => setFilterDepartamento(e.target.value)}
             className="w-full p-2 border border-gray-300 rounded-md appearance-none pl-10"
-            disabled={userRole === "Jefe de Departamento"} // Deshabilitar si es jefe de departamento
+            disabled={userRole === "Jefe de Departamento"}
           >
-            {/* Si es Jefe, mostrar solo su departamento, si no mostrar todos */}
             {userRole === "Jefe de Departamento" ? (
               <option value={departamento}>{departamento}</option>
             ) : (
@@ -1116,7 +1061,6 @@ export default function OrdenesCompraClient({
             className="w-full p-2 border border-gray-300 rounded-md appearance-none pl-10"
           >
             <option value="">Todos los proveedores</option>
-            {/* Siempre usamos los proveedores filtrados según la lógica corregida arriba */}
             {proveedoresFiltrados.map((proveedor, index) => (
               <option key={`${proveedor.idProveedor}-${index}`} value={proveedor.Nombre}>
                 {proveedor.Nombre}
@@ -1173,7 +1117,6 @@ export default function OrdenesCompraClient({
                     </div>
                   )}
                 </th>
-                {/* Columnas */}
                 <th className="text-left py-3 px-4 font-medium text-gray-600">Num.Orden</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-600">Descripción</th>
                 <th className="text-center py-3 px-4 font-medium text-gray-600">Fecha</th>
@@ -1271,10 +1214,10 @@ export default function OrdenesCompraClient({
                       </div>
                     </td>
 
-                    {/* Facturas */}
+                    {/* Facturas - ACTUALIZADO PARA v2.0 */}
                     <td className="py-3 px-3 text-center">
                       <div className="flex justify-center">
-                        {orden.Factura === 1 || orden.Factura === true ? (
+                        {(orden.Factura === 1 || orden.Factura === true || orden.tiene_factura === 1) ? (
                           <div
                             className="relative group"
                             onMouseEnter={() => setActiveTooltip(`factura-check-${orden.idOrden}`)}
@@ -1284,6 +1227,9 @@ export default function OrdenesCompraClient({
                             {activeTooltip === `factura-check-${orden.idOrden}` && (
                               <div className="border border-black/10 absolute z-50 bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-white bg-opacity-80 text-black text-xs rounded py-1 px-2 whitespace-nowrap">
                                 Factura adjuntada
+                                {orden.numero_factura && (
+                                  <div className="font-semibold">{orden.numero_factura}</div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1334,7 +1280,7 @@ export default function OrdenesCompraClient({
                 ))
               ) : (
                 <tr>
-                  <td colSpan="10" className="py-8 text-center text-gray-500">
+                  <td colSpan="11" className="py-8 text-center text-gray-500">
                     No se encontraron órdenes{" "}
                     {searchTerm || filterDepartamento || filterProveedor || filterInventariable || filterMes || filterAño
                       ? "con los criterios de búsqueda actuales"
@@ -1352,7 +1298,6 @@ export default function OrdenesCompraClient({
         <div className="flex gap-4">
           {canEdit && <Button onClick={handleOpenAddModal}>Nueva Orden</Button>}
 
-          {/* NUEVO: Botón de exportar */}
           <Button
             onClick={handleExportClick}
             disabled={filteredOrdenes.length === 0}
@@ -1393,7 +1338,7 @@ export default function OrdenesCompraClient({
         fechaLimiteFormatted={fechaLimiteFormatted}
       />
 
-      {/* NUEVO: Modal para previsualizar y exportar Excel */}
+      {/* Modal para previsualizar y exportar Excel */}
       {showExportModal && (
         <div
           className="fixed inset-0 flex items-center justify-center z-50"
@@ -1456,7 +1401,7 @@ export default function OrdenesCompraClient({
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="10" className="py-4 text-center text-gray-500">
+                        <td colSpan="12" className="py-4 text-center text-gray-500">
                           No hay datos para exportar
                         </td>
                       </tr>

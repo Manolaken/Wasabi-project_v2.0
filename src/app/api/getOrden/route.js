@@ -1,3 +1,4 @@
+// src/app/api/getOrden/route.js
 import { pool } from '@/app/api/lib/db'
 
 export async function POST(req) {
@@ -17,8 +18,8 @@ export async function POST(req) {
       id_UsuarioFK,
       id_EstadoOrdenFK,
       Num_inversion,
-      id_InversionFK,
-      id_PresupuestoFK
+      tiene_factura,
+      numero_factura
     } = data
 
     // Iniciar transacción
@@ -30,9 +31,10 @@ export async function POST(req) {
       console.log("➕ Creando nueva orden...");
       const [ordenResult] = await connection.query(
         `INSERT INTO Orden (
-    Num_orden, id_ProveedorFK, id_DepartamentoFK, id_UsuarioFK,
-    Importe, Fecha, Descripcion, Inventariable, Cantidad, id_EstadoOrdenFK, Factura
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          Num_orden, id_ProveedorFK, id_DepartamentoFK, id_UsuarioFK,
+          Importe, Fecha, Descripcion, Inventariable, Cantidad, 
+          id_EstadoOrdenFK, tiene_factura, numero_factura
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           Num_orden,
           id_ProveedorFK,
@@ -44,7 +46,8 @@ export async function POST(req) {
           Inventariable,
           Cantidad,
           id_EstadoOrdenFK || 1, // Usar 1 (En proceso) como valor predeterminado
-          data.Factura || 0 // Añadir el campo Factura, por defecto 0 (sin factura)
+          tiene_factura || 0, // Campo actualizado para v2.0
+          numero_factura || null // Campo actualizado para v2.0
         ]
       )
 
@@ -52,7 +55,7 @@ export async function POST(req) {
       console.log("✅ Orden creada con ID:", idOrdenNuevo);
 
       // 2. MANEJAR INVERSIONES vs ÓRDENES NORMALES
-      console.log("💰 Procesando tipo de orden...", { Num_inversion, id_InversionFK });
+      console.log("💰 Procesando tipo de orden...", { Num_inversion });
 
       if (Num_inversion && Num_inversion.toString().trim() !== '') {
         // Es una inversión

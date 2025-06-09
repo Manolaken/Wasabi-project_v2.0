@@ -1,3 +1,4 @@
+// src/app/api/getOrden/[id]/route.js
 import { pool } from '@/app/api/lib/db';
 
 export async function PUT(request, { params }) {
@@ -20,8 +21,8 @@ export async function PUT(request, { params }) {
       id_UsuarioFK,
       id_EstadoOrdenFK,
       Num_inversion,
-      id_InversionFK,
-      id_PresupuestoFK
+      tiene_factura,
+      numero_factura
     } = data;
 
     // Iniciar transacción
@@ -33,10 +34,10 @@ export async function PUT(request, { params }) {
       console.log("🔄 Actualizando orden principal...");
       await connection.query(
         `UPDATE Orden 
-    SET Num_orden = ?, id_ProveedorFK = ?, id_DepartamentoFK = ?, id_UsuarioFK = ?,
-        Importe = ?, Fecha = ?, Descripcion = ?, Inventariable = ?, Cantidad = ?, 
-        id_EstadoOrdenFK = ?, Factura = ?
-    WHERE idOrden = ?`,
+        SET Num_orden = ?, id_ProveedorFK = ?, id_DepartamentoFK = ?, id_UsuarioFK = ?,
+            Importe = ?, Fecha = ?, Descripcion = ?, Inventariable = ?, Cantidad = ?, 
+            id_EstadoOrdenFK = ?, tiene_factura = ?, numero_factura = ?
+        WHERE idOrden = ?`,
         [
           Num_orden,
           id_ProveedorFK,
@@ -48,7 +49,8 @@ export async function PUT(request, { params }) {
           Inventariable,
           Cantidad,
           id_EstadoOrdenFK,
-          data.Factura || 0, // Añadir el campo Factura, por defecto 0 (sin factura)
+          tiene_factura || 0, // Campo actualizado para v2.0
+          numero_factura || null, // Campo actualizado para v2.0
           ordenId
         ]
       );
@@ -59,7 +61,7 @@ export async function PUT(request, { params }) {
       await connection.query('DELETE FROM Orden_Compra WHERE idOrden = ?', [ordenId]);
 
       // 3. MANEJAR INVERSIONES
-      console.log("💰 Procesando inversión...", { Num_inversion, id_InversionFK });
+      console.log("💰 Procesando inversión...", { Num_inversion });
       if (Num_inversion && Num_inversion.toString().trim() !== '') {
         // Es una inversión
 
@@ -80,7 +82,7 @@ export async function PUT(request, { params }) {
         console.log("✅ Insertando en Orden_Inversion:", {
           idOrden: ordenId,
           id_InversionFK: bolsaInversionId,
-          Num_inversion: parseInt(Num_inversion) // Convertir a entero
+          Num_inversion: parseInt(Num_inversion)
         });
 
         await connection.query(
