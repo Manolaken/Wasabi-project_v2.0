@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "Wasabi Project",
+  title: "Wasabi Project v2.0",
   description: "Plataforma para la administración económica de los departamentos de Salesianos Zaragoza",
 };
 
