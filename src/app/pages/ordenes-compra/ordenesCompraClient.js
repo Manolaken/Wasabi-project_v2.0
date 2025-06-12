@@ -7,6 +7,7 @@ import useNotifications from "@/app/hooks/useNotifications"
 import ConfirmationDialog from "@/app/components/ui/confirmation-dialog"
 import useUserDepartamento from "@/app/hooks/useUserDepartamento"
 import OrdenModal from "@/app/components/modals/OrdenModal";
+import * as XLSX from 'xlsx';
 
 export default function OrdenesCompraClient({
   initialOrdenes,
@@ -390,36 +391,63 @@ export default function OrdenesCompraClient({
     return data;
   };
 
-  // Función para generar CSV
+  // Función para generar Excel (.xlsx)
+  // ACTUALIZADO PARA v2.0
   const generateExcel = async () => {
     try {
       setIsGeneratingExcel(true);
 
-      const headers = Object.keys(exportData[0]);
-      let csvContent = headers.join(',') + '\n';
+      // Crear un nuevo libro de trabajo
+      const workbook = XLSX.utils.book_new();
 
-      exportData.forEach(row => {
-        const values = headers.map(header => {
-          const cellValue = row[header] || '';
-          return typeof cellValue === 'string' && (cellValue.includes(',') || cellValue.includes('"'))
-            ? `"${cellValue.replace(/"/g, '""')}"`
-            : cellValue;
-        });
-        csvContent += values.join(',') + '\n';
+      // Convertir datos a formato de hoja de cálculo
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+      // Configurar el ancho de las columnas para mejor legibilidad
+      const columnWidths = [
+        { wch: 15 }, // Número Orden
+        { wch: 30 }, // Descripción
+        { wch: 12 }, // Fecha
+        { wch: 12 }, // Importe (€)
+        { wch: 12 }, // Inventariable
+        { wch: 10 }, // Cantidad
+        { wch: 15 }, // Departamento
+        { wch: 20 }, // Proveedor
+        { wch: 15 }, // Número Inversión
+        { wch: 10 }, // Factura
+        { wch: 12 }  // Estado
+      ];
+
+      worksheet['!cols'] = columnWidths;
+
+      // Agregar la hoja al libro de trabajo
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Órdenes de Compra');
+
+      // Generar el archivo Excel como array buffer
+      const excelBuffer = XLSX.write(workbook, { 
+        bookType: 'xlsx', 
+        type: 'array',
+        compression: true
       });
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      // Convertir a Blob para descarga
+      const blob = new Blob([excelBuffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+
+      // Crear URL para previsualización
       const url = URL.createObjectURL(blob);
 
+      // Configurar opciones para descarga
       return {
         url,
         blob,
-        filename: `${excelFileName}.csv`
+        filename: `${excelFileName}.xlsx`
       };
 
     } catch (error) {
-      console.error("Error generando archivo CSV:", error);
-      addNotification("Error al generar el archivo CSV", "error");
+      console.error("Error generando archivo Excel:", error);
+      addNotification("Error al generar el archivo Excel", "error");
       return null;
     } finally {
       setIsGeneratingExcel(false);
@@ -444,28 +472,33 @@ export default function OrdenesCompraClient({
     addNotification("Archivo Excel descargado correctamente", "success");
   };
 
-  // Manejar apertura del modal de exportación
+   // ACTUALIZADO: Manejar apertura del modal de exportación
   const handleExportClick = () => {
+    // Si no hay órdenes seleccionadas y el usuario presionó el botón Exportar
     if (selectedOrdenes.length === 0) {
+      // Mostrar alerta para seleccionar órdenes
       addNotification("Por favor, selecciona al menos una orden de compra para exportar", "warning");
       return;
     }
 
+    // Si hay órdenes filtradas pero ninguna seleccionada específicamente
     if (selectedOrdenes.length === 0 && filteredOrdenes.length === 0) {
       addNotification("No hay órdenes para exportar", "warning");
       return;
     }
 
+    // Preparar datos para exportación
     const data = prepareExportData();
     setExportData(data);
 
+    // Generar nombre de archivo con fecha actual
     const today = new Date();
     const formattedDate = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
     setExcelFileName(`ordenes_compra_${formattedDate}`);
 
+    // Mostrar modal
     setShowExportModal(true);
   };
-
   // Toggle selección de orden
   const toggleSelectOrden = (ordenId) => {
     if (selectedOrdenes.includes(ordenId)) {
@@ -1338,7 +1371,7 @@ export default function OrdenesCompraClient({
         fechaLimiteFormatted={fechaLimiteFormatted}
       />
 
-      {/* Modal para previsualizar y exportar Excel */}
+      {/* ACTUALIZADO: Modal para previsualizar y exportar Excel */}
       {showExportModal && (
         <div
           className="fixed inset-0 flex items-center justify-center z-50"
@@ -1370,7 +1403,7 @@ export default function OrdenesCompraClient({
                   className="border border-gray-300 rounded px-3 py-2 flex-grow"
                   disabled={isGeneratingExcel}
                 />
-                <span className="bg-gray-100 text-gray-600 border border-gray-200 rounded px-3 py-2">.csv</span>
+                <span className="bg-gray-100 text-gray-600 border border-gray-200 rounded px-3 py-2">.xlsx</span>
               </div>
             </div>
 
@@ -1401,7 +1434,7 @@ export default function OrdenesCompraClient({
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="12" className="py-4 text-center text-gray-500">
+                        <td colSpan="10" className="py-4 text-center text-gray-500">
                           No hay datos para exportar
                         </td>
                       </tr>
@@ -1418,13 +1451,14 @@ export default function OrdenesCompraClient({
             <div className="mb-6 bg-blue-50 p-4 rounded-md text-blue-700 text-sm">
               <p className="font-medium mb-1">Información sobre la exportación:</p>
               <ul className="list-disc list-inside">
-                <li>Se exportarán {exportData.length} órdenes en formato Excel (.csv)</li>
+                <li>Se exportarán {exportData.length} órdenes en formato Excel (.xlsx)</li>
                 <li>
                   {selectedOrdenes.length > 0
                     ? `Has seleccionado ${selectedOrdenes.length} órdenes para exportar`
                     : 'Se exportarán todas las órdenes visibles según los filtros aplicados'}
                 </li>
                 <li>El archivo incluirá todos los campos mostrados en la vista previa</li>
+                <li> Las columnas tendrán un ancho optimizado para mejorar la legibilidad</li>
               </ul>
             </div>
 
@@ -1450,12 +1484,12 @@ export default function OrdenesCompraClient({
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Procesando...
+                    Generando...
                   </>
                 ) : (
                   <>
                     <Download className="w-4 h-4" />
-                    Descargar CSV
+                    Descargar Excel
                   </>
                 )}
               </button>

@@ -1,4 +1,5 @@
 "use client"
+// MODAL PARA AÑADIR O EDITAR ORDENES DE COMPRA
 
 import { useState, useEffect, useRef } from "react"
 import { ChevronDown, X, Info } from "lucide-react";
@@ -105,7 +106,7 @@ export default function OrdenModal({
       if (fechaSeleccionada < fechaLimite) return;
     }
 
-    if (name === 'importe') {
+    if (name === 'importe') { 
       // Validación más simple y rápida
       if (value !== '' && !/^([1-9]\d{0,5}(\.\d{0,2})?|0\.[1-9]\d?|0\.0[1-9])$/.test(value)) return;
       if (value !== '' && parseFloat(value) > 100000) return;
@@ -124,7 +125,7 @@ export default function OrdenModal({
     }));
   };
 
-  if (!showModal) return null;
+  if (!showModal) return null; // Si no se debe mostrar el modal, no renderizar nada
 
   return (
     <div
@@ -339,7 +340,7 @@ export default function OrdenModal({
                   className="form-checkbox h-5 w-5 text-red-600 cursor-pointer"
                 />
                 <span className="ml-2">
-                  {formularioOrden.tieneFactura ? "Factura adjuntada" : "Sin factura"}
+                  {formularioOrden.tieneFactura ? "Factura adjuntada" : "¿Tiene Factura?"}
                 </span>
               </label>
             </div>
