@@ -2,7 +2,7 @@
 // MODAL PARA AÑADIR O EDITAR ORDENES DE COMPRA
 
 import { useState, useEffect, useRef } from "react"
-import { ChevronDown, X, Info } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import Button from "@/app/components/ui/button"
 
 export default function OrdenModal({

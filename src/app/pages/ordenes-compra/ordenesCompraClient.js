@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { ChevronDown, Pencil, X, Search, Filter, Check, Info, Calendar, Download, FileText } from "lucide-react";
 import Button from "@/app/components/ui/button"
 import useNotifications from "@/app/hooks/useNotifications"
@@ -30,7 +30,7 @@ export default function OrdenesCompraClient({
 
   // Estados principales
   const [ordenes, setOrdenes] = useState(initialOrdenes);
-  const [departamentos, setDepartamentos] = useState(Array.isArray(initialDepartamentos) ? initialDepartamentos : []);
+  const [departamentos] = useState(Array.isArray(initialDepartamentos) ? initialDepartamentos : []);
   const [proveedores] = useState(initialProveedores);
   const [selectedOrdenes, setSelectedOrdenes] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
