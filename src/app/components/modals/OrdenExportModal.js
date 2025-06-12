@@ -20,6 +20,7 @@ export default function OrdenExportModal({
     const today = new Date()
     const formattedDate = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`
     
+    // Incluir departamento en el nombre si está seleccionado
     let fileName = 'ordenes_compra'
     if (departamentoSeleccionado && departamentoSeleccionado.trim() !== '') {
       console.log('🏷️ Procesando departamento para nombre:', departamentoSeleccionado);
