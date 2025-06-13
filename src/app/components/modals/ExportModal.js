@@ -1,17 +1,19 @@
-// src/app/components/modals/OrdenExportModal.js
+// src/app/components/modals/ExportModal.js
 "use client"
 
 import { useState, useEffect } from "react"
 import { X, Download } from "lucide-react"
 import * as XLSX from 'xlsx'
 
-export default function OrdenExportModal({
+export default function ExportModal({
   isOpen,
   onClose,
   exportData,
   selectedCount,
   onNotification,
-  departamentoSeleccionado // NUEVA PROP
+  departamentoSeleccionado, 
+  moduleName = "datos", // Nombre del módulo a exportar (ordenes, inventario, etc.)
+  filePrefix = "export" // Prefijo para el archivo
 }) {
   // DEBUG: Mostrar el departamento recibido
   console.log('📁 Modal recibió departamento:', departamentoSeleccionado);
@@ -21,7 +23,7 @@ export default function OrdenExportModal({
     const formattedDate = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`
     
     // Incluir departamento en el nombre si está seleccionado
-    let fileName = 'ordenes_compra'
+    let fileName = filePrefix
     if (departamentoSeleccionado && departamentoSeleccionado.trim() !== '') {
       console.log('🏷️ Procesando departamento para nombre:', departamentoSeleccionado);
       // Limpiar el nombre del departamento para usar en archivo
@@ -32,7 +34,7 @@ export default function OrdenExportModal({
         .replace(/^_|_$/g, '') // Quitar _ al inicio y final
       
       console.log('✅ Nombre limpio del departamento:', depLimpio);
-      fileName = `ordenes_${depLimpio}`
+      fileName = `${filePrefix}_${depLimpio}`
     }
     
     const finalFileName = `${fileName}_${formattedDate}`;
@@ -49,59 +51,47 @@ export default function OrdenExportModal({
       const today = new Date()
       const formattedDate = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`
       
-      let fileName = 'ordenes_compra'
+      let fileName = filePrefix
       if (departamentoSeleccionado && departamentoSeleccionado.trim() !== '') {
-        console.log('🏗️ Regenerando nombre con departamento:', departamentoSeleccionado);
         const depLimpio = departamentoSeleccionado
           .toLowerCase()
           .replace(/[^a-z0-9]/g, '_')
           .replace(/_+/g, '_')
           .replace(/^_|_$/g, '')
-        
-        fileName = `ordenes_${depLimpio}`
-        console.log('✨ Nuevo nombre de archivo:', fileName);
-      } else {
-        console.log('ℹ️ No hay departamento, usando nombre genérico');
+        fileName = `${filePrefix}_${depLimpio}`
       }
       
       const finalFileName = `${fileName}_${formattedDate}`;
-      console.log('📝 Estableciendo nombre final:', finalFileName);
       setExcelFileName(finalFileName);
     }
-  }, [departamentoSeleccionado, isOpen])
+  }, [isOpen, departamentoSeleccionado, filePrefix])
 
-  // Función para generar Excel (.xlsx)
+  // Función para generar el archivo Excel
   const generateExcel = async () => {
+    if (!exportData || exportData.length === 0) {
+      onNotification("No hay datos para exportar", "warning")
+      return null
+    }
+
     try {
       setIsGeneratingExcel(true)
 
       // Crear un nuevo libro de trabajo
       const workbook = XLSX.utils.book_new()
 
-      // Convertir datos a formato de hoja de cálculo
+      // Convertir los datos a una hoja de trabajo
       const worksheet = XLSX.utils.json_to_sheet(exportData)
 
-      // Configurar el ancho de las columnas para mejor legibilidad
-      const columnWidths = [
-        { wch: 15 }, // Número Orden
-        { wch: 30 }, // Descripción
-        { wch: 12 }, // Fecha
-        { wch: 12 }, // Importe (€)
-        { wch: 12 }, // Inventariable
-        { wch: 10 }, // Cantidad
-        { wch: 15 }, // Departamento
-        { wch: 20 }, // Proveedor
-        { wch: 15 }, // Número Inversión
-        { wch: 10 }, // Factura
-        { wch: 12 }  // Estado
-      ]
+      // Agregar la hoja al libro
+      XLSX.utils.book_append_sheet(workbook, worksheet, moduleName.charAt(0).toUpperCase() + moduleName.slice(1))
 
-      worksheet['!cols'] = columnWidths
+      // Configurar el ancho de las columnas para mejor visualización
+      const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+        wch: Math.max(key.length, 15) // Ancho mínimo de 15 caracteres
+      }))
+      worksheet['!cols'] = colWidths
 
-      // Agregar la hoja al libro de trabajo
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Órdenes de Compra')
-
-      // Generar el archivo Excel como array buffer
+      // Generar el nuevo Excel como array buffer
       const excelBuffer = XLSX.write(workbook, { 
         bookType: 'xlsx', 
         type: 'array',
@@ -157,6 +147,9 @@ export default function OrdenExportModal({
 
   if (!isOpen) return null
 
+  // Calcular el número de columnas para el colspan
+  const numColumns = exportData.length > 0 ? Object.keys(exportData[0]).length : 1
+
   return (
     <div
       className="fixed inset-0 flex items-center justify-center z-50"
@@ -182,7 +175,7 @@ export default function OrdenExportModal({
           <label className="block text-gray-700 mb-1">Nombre del archivo</label>
           {departamentoSeleccionado && (
             <p className="text-xs text-blue-600 mb-2">
-              📁 Exportando órdenes del departamento: <strong>{departamentoSeleccionado}</strong>
+              📁 Exportando {moduleName} del departamento: <strong>{departamentoSeleccionado}</strong>
             </p>
           )}
           <div className="flex gap-2">
@@ -196,7 +189,7 @@ export default function OrdenExportModal({
             <span className="bg-gray-100 text-gray-600 border border-gray-200 rounded px-3 py-2">.xlsx</span>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            El nombre incluye la fecha actual y el departamento seleccionado
+            El nombre incluye la fecha actual {departamentoSeleccionado ? 'y el departamento seleccionado' : ''}
           </p>
         </div>
 
@@ -227,7 +220,7 @@ export default function OrdenExportModal({
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="10" className="py-4 text-center text-gray-500">
+                    <td colSpan={numColumns} className="py-4 text-center text-gray-500">
                       No hay datos para exportar
                     </td>
                   </tr>
@@ -236,7 +229,7 @@ export default function OrdenExportModal({
             </table>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Se exportarán {exportData.length} órdenes {selectedCount > 0 ? 'seleccionadas' : 'filtradas'}.
+            Se exportarán {exportData.length} {moduleName} {selectedCount > 0 ? 'seleccionados' : 'filtrados'}.
           </p>
         </div>
 
@@ -244,11 +237,11 @@ export default function OrdenExportModal({
         <div className="mb-6 bg-blue-50 p-4 rounded-md text-blue-700 text-sm">
           <p className="font-medium mb-1">Información sobre la exportación:</p>
           <ul className="list-disc list-inside">
-            <li>Se exportarán {exportData.length} órdenes en formato Excel (.xlsx)</li>
+            <li>Se exportarán {exportData.length} {moduleName} en formato Excel (.xlsx)</li>
             <li>
               {selectedCount > 0
-                ? `Has seleccionado ${selectedCount} órdenes para exportar`
-                : 'Se exportarán todas las órdenes visibles según los filtros aplicados'}
+                ? `Has seleccionado ${selectedCount} ${moduleName} para exportar`
+                : `Se exportarán todos los ${moduleName} visibles según los filtros aplicados`}
             </li>
             <li>El archivo incluirá todos los campos mostrados en la vista previa</li>
             <li>Las columnas tendrán un ancho optimizado para mejor legibilidad</li>

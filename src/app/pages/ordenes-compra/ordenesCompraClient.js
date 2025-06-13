@@ -7,7 +7,7 @@ import useNotifications from "@/app/hooks/useNotifications"
 import ConfirmationDialog from "@/app/components/ui/confirmation-dialog"
 import useUserDepartamento from "@/app/hooks/useUserDepartamento"
 import OrdenModal from "@/app/components/modals/OrdenModal";
-import OrdenExportModal from "@/app/components/modals/OrdenExportModal"; // NUEVA IMPORTACIÓN
+import OrdenExportModal from "@/app/components/modals/ExportModal"; // NUEVA IMPORTACIÓN
 
 export default function OrdenesCompraClient({
   initialOrdenes,
@@ -1342,6 +1342,8 @@ export default function OrdenesCompraClient({
         selectedCount={selectedOrdenes.length}
         onNotification={addNotification}
         departamentoSeleccionado={getDepartamentoParaExportar()}
+        moduleName="Ordenes"
+        filePrefix="ordenes_compra"
       />
     </div>
   );
