@@ -1,40 +1,51 @@
-// src/app/pages/inventario/inventarioClient.js
-"use client"
+// Archivo: src/app/pages/inventario/inventarioClient.js
+"use client";
 
-import { useState, useEffect, useMemo } from "react"
-import { Search, Plus, Edit, Trash2, X, FileText } from "lucide-react"
-import Button from "@/app/components/ui/button"
-import useNotifications from "@/app/hooks/useNotifications"
-// IMPORTANTE: Solo importar el modal reutilizable
-import ExportModal from "@/app/components/modals/ExportModal"
+import { useState, useEffect, useMemo, useRef } from "react";
+import { 
+  FileText, 
+  Plus, 
+  X, 
+  ChevronDown, 
+  Search,
+  RotateCcw
+} from "lucide-react";
+import Button from "../../components/ui/button";
+import useNotifications from "../../hooks/useNotifications";
 
 export default function InventarioClient({
-  initialInventarios,
-  initialDepartamentos,
-  initialProveedores,
+  initialInventarios = [],
+  initialDepartamentos = [], 
+  initialProveedores = []
 }) {
-  // Estados principales
-  const [uniqueInventarios, setUniqueInventarios] = useState(initialInventarios || [])
-  const [departamentos, setDepartamentos] = useState(initialDepartamentos || [])
-  const [proveedores, setProveedores] = useState(initialProveedores || [])
-  const [userRole, setUserRole] = useState("")
+  // Estados principales - usar datos iniciales directamente
+  const [uniqueInventarios, setUniqueInventarios] = useState(initialInventarios);
+  const [proveedores, setProveedores] = useState(initialProveedores);
+  const [departamentos, setDepartamentos] = useState(initialDepartamentos);
+  const [isLoading, setIsLoading] = useState(false);
+  const [userRole, setUserRole] = useState("");
+  const [userDepartamento, setUserDepartamento] = useState("");
+  const [isDepartamentoLoading, setIsDepartamentoLoading] = useState(true);
 
-  // Estados de UI
-  const [isLoading, setIsLoading] = useState(false)
-  const [showModal, setShowModal] = useState(false)
-  const [modalMode, setModalMode] = useState("add")
-  const [formError, setFormError] = useState("")
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedItems, setSelectedItems] = useState([])
+  // Estados de interfaz
+  const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState("add");
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [formError, setFormError] = useState("");
 
   // Estados de filtros
-  const [filterDepartamento, setFilterDepartamento] = useState("")
-  const [filterProveedor, setFilterProveedor] = useState("")
-  const [filterInventariable, setFilterInventariable] = useState("")
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterDepartamento, setFilterDepartamento] = useState("");
+  const [filterProveedor, setFilterProveedor] = useState("");
+  const [filterInventariable, setFilterInventariable] = useState("");
 
-  // Estados para exportación
-  const [showExportModal, setShowExportModal] = useState(false)
-  const [exportData, setExportData] = useState([])
+  // NUEVO: Estados para exportación
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportData, setExportData] = useState([]);
+  const sheetJSRef = useRef(null);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [excelFileName, setExcelFileName] = useState("inventario");
+  const [isGeneratingExcel, setIsGeneratingExcel] = useState(false);
 
   // Estado para diálogo de confirmación
   const [confirmDialog, setConfirmDialog] = useState({
@@ -42,10 +53,10 @@ export default function InventarioClient({
     title: "",
     message: "",
     onConfirm: () => {},
-  })
+  });
 
   // Hook de notificaciones
-  const { addNotification, notificationComponents } = useNotifications()
+  const { addNotification, notificationComponents } = useNotifications();
 
   // Estado del formulario
   const [formularioItem, setFormularioItem] = useState({
@@ -55,7 +66,7 @@ export default function InventarioClient({
     departamento: "",
     cantidad: "",
     inventariable: "",
-  })
+  });
 
   // Efecto para obtener el rol del usuario y configurar filtros iniciales
   useEffect(() => {
@@ -65,81 +76,80 @@ export default function InventarioClient({
         if (response.ok) {
           const data = await response.json()
           const role = data.usuario?.rol || ''
+          const departamento = data.usuario?.departamento || ''
+          
           setUserRole(role)
+          setUserDepartamento(departamento)
           
           // Si es Jefe de Departamento, establecer el filtro automáticamente
-          if (role === 'Jefe de Departamento' && data.usuario?.departamento) {
-            setFilterDepartamento(data.usuario.departamento)
+          if (role === "Jefe de Departamento" && departamento) {
+            setFilterDepartamento(departamento)
           }
         }
       } catch (error) {
-        console.error('Error obteniendo rol del usuario:', error)
+        console.error('Error al obtener el rol del usuario:', error)
+      } finally {
+        setIsDepartamentoLoading(false)
       }
     }
-    
+
     fetchUserRole()
   }, [])
 
-  // Función para formatear inventariable
-  const formatInventariable = (inventariable) => {
-    return inventariable === 1 ? "Sí" : "No"
-  }
+  // Resto de efectos y funciones (no necesitamos fetch ya que usamos datos iniciales)
+  useEffect(() => {
+    // Solo necesitamos obtener el rol del usuario, los datos ya están disponibles
+    // No hacemos fetch de inventarios, proveedores ni departamentos
+  }, []);
 
-  // Función para formatear fecha
-  const formatDate = (dateString) => {
-    if (!dateString) return ""
-    const date = new Date(dateString)
-    return date.toLocaleDateString("es-ES")
-  }
+  // No necesitamos las funciones de fetch ya que usamos datos iniciales
+  // Si necesitamos refrescar datos, podemos implementar estas funciones más tarde
 
   // Inventarios filtrados
   const filteredInventarios = useMemo(() => {
-    return uniqueInventarios.filter(item => {
+    return uniqueInventarios.filter((item) => {
       // Filtro por término de búsqueda
-      const matchesSearch = searchTerm === "" || 
-        item.Descripcion?.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesSearch = item.Descripcion?.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Filtro por departamento
       const matchesDepartamento = filterDepartamento === "" || 
-        item.Departamento === filterDepartamento
+        item.Departamento === filterDepartamento;
 
       // Filtro por proveedor
       const matchesProveedor = filterProveedor === "" || 
-        item.Proveedor === filterProveedor
+        item.Proveedor === filterProveedor;
 
       // Filtro por inventariable
       const matchesInventariable = filterInventariable === "" || 
         (filterInventariable === "inventariable" && item.Inventariable === 1) ||
-        (filterInventariable === "no-inventariable" && item.Inventariable === 0)
+        (filterInventariable === "no-inventariable" && item.Inventariable === 0);
 
-      return matchesSearch && matchesDepartamento && matchesProveedor && matchesInventariable
-    })
-  }, [uniqueInventarios, searchTerm, filterDepartamento, filterProveedor, filterInventariable])
+      return matchesSearch && matchesDepartamento && matchesProveedor && matchesInventariable;
+    });
+  }, [uniqueInventarios, searchTerm, filterDepartamento, filterProveedor, filterInventariable]);
 
   // Proveedores filtrados por departamento
   const proveedoresFiltrados = useMemo(() => {
-    if (!filterDepartamento) return proveedores
+    if (!filterDepartamento) return proveedores;
     
     return proveedores.filter(proveedor => {
       return uniqueInventarios.some(item => 
         item.Proveedor === proveedor.Nombre && item.Departamento === filterDepartamento
-      )
-    })
-  }, [filterDepartamento, proveedores, uniqueInventarios])
+      );
+    });
+  }, [filterDepartamento, proveedores, uniqueInventarios]);
 
   // Reset proveedor cuando cambia departamento
   useMemo(() => {
-    setFilterProveedor("")
-  }, [filterDepartamento])
+    setFilterProveedor("");
+  }, [filterDepartamento]);
 
   // Preparar datos para exportación
   const prepareExportData = () => {
-    // Si hay items seleccionados, usar esos; si no, usar todos los filtrados
     const itemsToExport = selectedItems.length > 0
       ? uniqueInventarios.filter(item => selectedItems.includes(item.idOrden))
-      : filteredInventarios
+      : filteredInventarios;
     
-    // Crear la estructura de datos para Excel
     const data = itemsToExport.map(item => ({
       'ID Orden': item.idOrden || '',
       'Descripción': item.Descripcion || '',
@@ -149,242 +159,303 @@ export default function InventarioClient({
       'Inventariable': formatInventariable(item.Inventariable),
       'Fecha': formatDate(item.Fecha) || '',
       'Importe': item.Importe || 0
-    }))
+    }));
     
-    return data
-  }
+    return data;
+  };
 
-  // Manejar apertura del modal de exportación
+  // Efecto para cargar SheetJS
+  useEffect(() => {
+    if (showExportModal && !sheetJSRef.current) {
+      const loadSheetJS = async () => {
+        try {
+          const XLSX = await import('xlsx');
+          sheetJSRef.current = XLSX;
+        } catch (error) {
+          console.error("Error al cargar SheetJS:", error);
+          addNotification("Error al cargar las herramientas de exportación", "error");
+        }
+      };
+      
+      loadSheetJS();
+    }
+  }, [showExportModal, addNotification]);
+
+  // Manejar clic en exportar
   const handleExportClick = () => {
-    // Preparar datos para exportación
-    const data = prepareExportData()
-    
-    if (data.length === 0) {
-      addNotification("No hay datos para exportar", "warning")
-      return
+    if (selectedItems.length === 0 && filteredInventarios.length === 0) {
+      addNotification("No hay items para exportar", "warning");
+      return;
     }
+
+    if (selectedItems.length === 0) {
+      const shouldExportFiltered = window.confirm(
+        `No has seleccionado items específicos. ¿Deseas exportar todos los ${filteredInventarios.length} items mostrados?`
+      );
+      
+      if (!shouldExportFiltered) {
+        addNotification("Por favor, selecciona los items que deseas exportar", "info");
+        return;
+      }
+    }
+
+    const data = prepareExportData();
+    setExportData(data);
+
+    const currentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const depName = filterDepartamento ? `_${filterDepartamento}` : '';
+    setExcelFileName(`inventario${depName}_${currentDate}`);
     
-    setExportData(data)
-    setShowExportModal(true)
-  }
+    setShowExportModal(true);
+  };
 
-  // Función auxiliar para obtener el departamento correcto para exportar
-  const getDepartamentoParaExportar = () => {
-    return filterDepartamento || ''
-  }
+  // Función para generar Excel
+  const generateExcel = async () => {
+    try {
+      setIsGeneratingExcel(true);
+      
+      if (!sheetJSRef.current) {
+        throw new Error("SheetJS no está cargado");
+      }
 
-  // Manejar cambios en los inputs del formulario
-  const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setFormularioItem(prev => ({
-      ...prev,
-      [name]: value
-    }))
-  }
+      const XLSX = sheetJSRef.current;
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Inventario");
+      
+      const colWidths = [
+        { wch: 12 }, // ID Orden
+        { wch: 40 }, // Descripción
+        { wch: 25 }, // Proveedor
+        { wch: 20 }, // Departamento
+        { wch: 10 }, // Cantidad
+        { wch: 12 }, // Inventariable
+        { wch: 12 }, // Fecha
+        { wch: 12 }  // Importe
+      ];
+      worksheet['!cols'] = colWidths;
+      
+      XLSX.writeFile(workbook, `${excelFileName}.xlsx`);
+      
+      addNotification(`Archivo ${excelFileName}.xlsx descargado exitosamente`, "success");
+      setShowExportModal(false);
+      
+    } catch (error) {
+      console.error("Error al generar Excel:", error);
+      addNotification("Error al generar el archivo Excel", "error");
+    } finally {
+      setIsGeneratingExcel(false);
+    }
+  };
 
-  // Manejar selección de items
-  const handleItemSelect = (itemId) => {
-    setSelectedItems(prev => 
-      prev.includes(itemId)
-        ? prev.filter(id => id !== itemId)
-        : [...prev, itemId]
-    )
-  }
+  // Función para descargar Excel
+  const downloadExcel = () => {
+    generateExcel();
+  };
 
-  // Seleccionar/deseleccionar todos los items
-  const handleSelectAll = () => {
-    if (selectedItems.length === filteredInventarios.length) {
-      setSelectedItems([])
+  // Toggle selección de item
+  const toggleSelectItem = (itemId) => {
+    if (selectedItems.includes(itemId)) {
+      setSelectedItems(selectedItems.filter((id) => id !== itemId));
     } else {
-      setSelectedItems(filteredInventarios.map(item => item.idOrden))
+      setSelectedItems([...selectedItems, itemId]);
     }
-  }
+  };
+
+  // Seleccionar/deseleccionar todos
+  const toggleSelectAll = () => {
+    if (selectedItems.length === filteredInventarios.length) {
+      setSelectedItems([]);
+    } else {
+      setSelectedItems(filteredInventarios.map((i) => i.idOrden));
+    }
+  };
+
+  // Limpiar filtros
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setFilterProveedor("");
+    setFilterInventariable("");
+    
+    if (userRole !== "Jefe de Departamento") {
+      setFilterDepartamento("");
+    }
+    
+    addNotification("Filtros eliminados", "info");
+  };
+
+  // Manejar cambios en el formulario
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormularioItem({
+      ...formularioItem,
+      [name]: value,
+    });
+  };
 
   // Abrir modal para añadir
   const handleOpenAddModal = () => {
-    setModalMode("add")
+    setModalMode("add");
     setFormularioItem({
       idOrden: null,
       descripcion: "",
       proveedor: "",
-      departamento: "",
+      departamento: userRole === "Jefe de Departamento" ? userDepartamento : "",
       cantidad: "",
       inventariable: "",
-    })
-    setFormError("")
-    setShowModal(true)
-  }
-
-  // Abrir modal para editar
-  const handleOpenEditModal = (item) => {
-    setModalMode("edit")
-    setFormularioItem({
-      idOrden: item.idOrden,
-      descripcion: item.Descripcion || "",
-      proveedor: item.Proveedor || "",
-      departamento: item.Departamento || "",
-      cantidad: item.Cantidad || "",
-      inventariable: item.Inventariable === 1 ? "inventariable" : "no-inventariable",
-    })
-    setFormError("")
-    setShowModal(true)
-  }
+    });
+    setFormError("");
+    setShowModal(true);
+  };
 
   // Cerrar modal
   const handleCloseModal = () => {
-    setShowModal(false)
-    setFormError("")
+    setShowModal(false);
+    setFormError("");
+  };
+
+  // Función para formatear inventariable
+  function formatInventariable(value) {
+    if (value === 1 || value === "1" || value === true) return "Sí";
+    if (value === 0 || value === "0" || value === false) return "No";
+    return value || "-";
   }
 
-  // Guardar item (añadir o editar)
-  const handleGuardarItem = async () => {
-    // Validaciones básicas
-    if (!formularioItem.descripcion.trim()) {
-      setFormError("La descripción es obligatoria")
-      return
+  // Función para formatear fecha
+  function formatDate(dateString) {
+    if (!dateString) return "-";
+    
+    if (dateString instanceof Date) {
+      return dateString.toLocaleDateString();
     }
-
-    if (!formularioItem.cantidad || isNaN(formularioItem.cantidad) || formularioItem.cantidad <= 0) {
-      setFormError("La cantidad debe ser un número mayor que 0")
-      return
-    }
-
     try {
-      setIsLoading(true)
-      setFormError("")
-
-      const itemData = {
-        descripcion: formularioItem.descripcion.trim(),
-        proveedor: formularioItem.proveedor,
-        departamento: formularioItem.departamento,
-        cantidad: parseFloat(formularioItem.cantidad),
-        inventariable: formularioItem.inventariable === "inventariable" ? 1 : 0,
-      }
-
-      // Aquí harías las llamadas a la API para añadir o actualizar
-      // Por simplicidad, lo dejo comentado pero puedes añadir estas funciones
-      /*
-      if (modalMode === "add") {
-        const nuevoItem = await addInventario(itemData)
-        setUniqueInventarios(prev => [...prev, nuevoItem])
-        addNotification("Item añadido correctamente", "success")
-      } else {
-        const itemActualizado = await updateInventario(formularioItem.idOrden, itemData)
-        setUniqueInventarios(prev => 
-          prev.map(item => 
-            item.idOrden === formularioItem.idOrden ? itemActualizado : item
-          )
-        )
-        addNotification("Item actualizado correctamente", "success")
-      }
-      */
-
-      // Simulación para testing
-      addNotification(`Item ${modalMode === "add" ? "añadido" : "actualizado"} correctamente`, "success")
-      handleCloseModal()
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
     } catch (error) {
-      console.error("Error al guardar item:", error)
-      setFormError("Error al guardar el item. Por favor, inténtalo de nuevo.")
-    } finally {
-      setIsLoading(false)
+      return "-";
     }
   }
 
-  // Eliminar item
-  const handleEliminarItem = async (itemId) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: "Confirmar eliminación",
-      message: "¿Estás seguro de que quieres eliminar este item?",
-      onConfirm: async () => {
-        try {
-          setIsLoading(true)
-          // Aquí harías la llamada a la API
-          // await eliminarInventario(itemId)
-          
-          // Simulación para testing
-          setUniqueInventarios(prev => prev.filter(item => item.idOrden !== itemId))
-          setSelectedItems(prev => prev.filter(id => id !== itemId))
-          addNotification("Item eliminado correctamente", "success")
-        } catch (error) {
-          console.error("Error al eliminar item:", error)
-          addNotification("Error al eliminar el item", "error")
-        } finally {
-          setIsLoading(false)
-        }
-        setConfirmDialog({ isOpen: false, title: "", message: "", onConfirm: () => {} })
-      }
-    })
+  // Mostrar loading si está cargando el departamento
+  if (isDepartamentoLoading) {
+    return <div className="p-6">Cargando...</div>;
   }
 
   return (
     <div className="p-6">
+      {/* Componentes de notificación */}
       {notificationComponents}
 
-      {/* Título */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Inventario</h1>
-        <Button onClick={handleOpenAddModal}>
-          <Plus className="w-4 h-4 mr-2" />
-          Añadir Item
-        </Button>
+      {/* NUEVA CABECERA - Similar a Órdenes de Compra */}
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">Inventario</h1>
+          <h2 className="text-xl text-gray-400">
+            Departamento {userDepartamento || filterDepartamento || "Todos"}
+          </h2>
+        </div>
+        
+        {/* BOTONES REUBICADOS - Arriba a la derecha y juntos */}
+        <div className="flex gap-3">
+          <Button
+            variant="export"
+            onClick={handleExportClick}
+            disabled={isLoading || filteredInventarios.length === 0}
+          >
+            <FileText className="w-4 h-4" />
+            <span>Exportar</span>
+          </Button>
+          
+          <Button
+            variant="add"
+            onClick={handleOpenAddModal}
+            disabled={isLoading}
+          >
+            <Plus className="w-4 h-4" />
+            <span>Añadir Item</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Barra de búsqueda y filtros */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Búsqueda */}
+      {/* Filtros y controles */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        {/* Búsqueda */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Buscar por descripción..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-3 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Filtro departamento */}
+        {userRole !== "Jefe de Departamento" && (
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Buscar por descripción..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 border border-gray-300 rounded px-3 py-2 w-full"
-            />
+            <select
+              value={filterDepartamento}
+              onChange={(e) => setFilterDepartamento(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8 appearance-none"
+            >
+              <option value="">Todos los departamentos</option>
+              {departamentos.map(dep => (
+                <option key={dep.id_Departamento || dep.id || dep._id} value={dep.Nombre}>
+                  {dep.Nombre}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
           </div>
+        )}
 
-          {/* Filtro por departamento */}
-          <select
-            value={filterDepartamento}
-            onChange={(e) => setFilterDepartamento(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2"
-            disabled={userRole === 'Jefe de Departamento'}
-          >
-            <option value="">Todos los departamentos</option>
-            {departamentos.map((dept, index) => (
-              <option key={`${dept.Nombre}-${index}`} value={dept.Nombre}>
-                {dept.Nombre}
-              </option>
-            ))}
-          </select>
-
-          {/* Filtro por proveedor */}
+        {/* Filtro proveedor */}
+        <div className="relative">
           <select
             value={filterProveedor}
             onChange={(e) => setFilterProveedor(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8 appearance-none"
           >
             <option value="">Todos los proveedores</option>
-            {proveedoresFiltrados.map((prov, index) => (
-              <option key={`${prov.Nombre}-${index}`} value={prov.Nombre}>
-                {prov.Nombre}
+            {proveedoresFiltrados.map((proveedor, index) => (
+              <option key={`${proveedor.idProveedor}-${index}`} value={proveedor.Nombre}>
+                {proveedor.Nombre}
               </option>
-            ))}
+))}
           </select>
+          <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+        </div>
 
-          {/* Filtro por inventariable */}
+        {/* Filtro inventariable */}
+        <div className="relative">
           <select
             value={filterInventariable}
             onChange={(e) => setFilterInventariable(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8 appearance-none"
           >
             <option value="">Todos</option>
             <option value="inventariable">Inventariable</option>
             <option value="no-inventariable">No inventariable</option>
           </select>
+          <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
         </div>
+
+        {/* Botón limpiar filtros */}
+        <Button
+          variant="outline"
+          onClick={handleClearFilters}
+        >
+          <RotateCcw className="w-4 h-4" />
+          <span>Limpiar</span>
+        </Button>
+      </div>
+
+      {/* Estadísticas */}
+      <div className="mb-4 text-sm text-gray-600">
+        Mostrando {filteredInventarios.length} de {uniqueInventarios.length} items
+        {selectedItems.length > 0 && ` (${selectedItems.length} seleccionados)`}
       </div>
 
       {/* Tabla de inventario */}
@@ -393,71 +464,73 @@ export default function InventarioClient({
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="py-3 px-4 text-left">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <input
                     type="checkbox"
                     checked={selectedItems.length === filteredInventarios.length && filteredInventarios.length > 0}
-                    onChange={handleSelectAll}
-                    className="rounded"
+                    onChange={toggleSelectAll}
+                    className="rounded border-gray-300"
                   />
                 </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ID Orden
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  ID
                 </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Descripción
                 </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Proveedor
                 </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Departamento
                 </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Cantidad
                 </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Inventariable
                 </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fecha
-                </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Importe
-                </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredInventarios.length > 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan="8" className="py-4 text-center text-gray-500">
+                    Cargando...
+                  </td>
+                </tr>
+              ) : filteredInventarios.length > 0 ? (
                 filteredInventarios.map((item) => (
                   <tr key={item.idOrden} className="hover:bg-gray-50">
-                    <td className="py-4 px-4">
+                    <td className="px-3 py-4">
                       <input
                         type="checkbox"
                         checked={selectedItems.includes(item.idOrden)}
-                        onChange={() => handleItemSelect(item.idOrden)}
-                        className="rounded"
+                        onChange={() => toggleSelectItem(item.idOrden)}
+                        className="rounded border-gray-300"
                       />
                     </td>
-                    <td className="py-4 px-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {item.idOrden}
                     </td>
-                    <td className="py-4 px-4 text-sm text-gray-900">
-                      {item.Descripcion}
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      <div className="max-w-xs truncate" title={item.Descripcion}>
+                        {item.Descripcion}
+                      </div>
                     </td>
-                    <td className="py-4 px-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {item.Proveedor}
                     </td>
-                    <td className="py-4 px-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {item.Departamento}
                     </td>
-                    <td className="py-4 px-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                       {item.Cantidad}
                     </td>
-                    <td className="py-4 px-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                       <span className={`px-2 py-1 text-xs rounded-full ${
                         item.Inventariable === 1 
                           ? 'bg-green-100 text-green-800' 
@@ -466,36 +539,15 @@ export default function InventarioClient({
                         {formatInventariable(item.Inventariable)}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-sm text-gray-900">
-                      {formatDate(item.Fecha)}
-                    </td>
-                    <td className="py-4 px-4 text-sm text-gray-900">
-                      €{item.Importe || 0}
-                    </td>
-                    <td className="py-4 px-4 text-sm text-gray-900">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleOpenEditModal(item)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Editar"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEliminarItem(item.idOrden)}
-                          className="text-red-600 hover:text-red-800"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                      {item.Importe ? `${item.Importe.toLocaleString('es-ES')} €` : '-'}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="10" className="py-8 text-center text-gray-500">
-                    No se encontraron items de inventario
+                  <td colSpan="8" className="py-8 text-center text-gray-500">
+                    No hay items que coincidan 
                     {searchTerm || filterDepartamento || filterProveedor || filterInventariable
                       ? " con los criterios de búsqueda actuales"
                       : ""}
@@ -505,19 +557,6 @@ export default function InventarioClient({
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* Botones de acción */}
-      <div className="flex justify-between mt-4">
-        <Button
-          onClick={handleExportClick}
-          disabled={isLoading || filteredInventarios.length === 0}
-        >
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            <span>Exportar</span>
-          </div>
-        </Button>
       </div>
 
       {/* Modal para añadir/editar item */}
@@ -574,105 +613,209 @@ export default function InventarioClient({
                 />
               </div>
               <div>
-                <label className="block text-gray-700 mb-1">Inventariable</label>
-                <div className="relative">
-                  <select
-                    name="inventariable"
-                    value={formularioItem.inventariable}
-                    onChange={handleInputChange}
-                    className="border border-gray-300 rounded px-3 py-2 w-full appearance-none"
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="inventariable">Inventariable</option>
-                    <option value="no-inventariable">No inventariable</option>
-                  </select>
-                </div>
-              </div>
-              <div>
                 <label className="block text-gray-700 mb-1">Proveedor</label>
-                <input
-                  type="text"
+                <select
                   name="proveedor"
                   value={formularioItem.proveedor}
                   onChange={handleInputChange}
                   className="border border-gray-300 rounded px-3 py-2 w-full"
-                  placeholder="Proveedor"
-                />
+                >
+                  <option value="">Seleccionar proveedor</option>
+                  {Array.isArray(proveedores) && proveedores.map((proveedor, index) => (
+                    <option key={`prov-${proveedor.idProveedor}-${index}`} value={proveedor.Nombre}>
+                      {proveedor.Nombre}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-gray-700 mb-1">Departamento</label>
-                <input
-                  type="text"
+                <select
                   name="departamento"
                   value={formularioItem.departamento}
                   onChange={handleInputChange}
                   className="border border-gray-300 rounded px-3 py-2 w-full"
-                  placeholder="Departamento"
-                />
+                  disabled={userRole === "Jefe de Departamento"}
+                >
+                  <option value="">Seleccionar departamento</option>
+                  {departamentos.map((departamento) => (
+                    <option key={departamento.id_Departamento} value={departamento.Nombre}>
+                      {departamento.Nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-gray-700 mb-1">Inventariable</label>
+                <select
+                  name="inventariable"
+                  value={formularioItem.inventariable}
+                  onChange={handleInputChange}
+                  className="border border-gray-300 rounded px-3 py-2 w-full"
+                >
+                  <option value="">Seleccionar</option>
+                  <option value="1">Sí</option>
+                  <option value="0">No</option>
+                </select>
               </div>
             </div>
 
             {/* Botones del modal */}
             <div className="flex justify-end gap-3">
-              <button
+              <Button
+                variant="outline"
                 onClick={handleCloseModal}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100"
-                disabled={isLoading}
               >
                 Cancelar
-              </button>
+              </Button>
               <Button
-                onClick={handleGuardarItem}
-                disabled={isLoading}
+                variant="primary"
+                onClick={() => {
+                  // Aquí iría la lógica para guardar
+                  console.log("Guardar:", formularioItem);
+                  handleCloseModal();
+                }}
               >
-                {isLoading ? "Guardando..." : "Guardar"}
+                {modalMode === "add" ? "Añadir" : "Guardar"}
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal de exportación usando el componente reutilizable */}
-      <ExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        exportData={exportData}
-        selectedCount={selectedItems.length}
-        onNotification={addNotification}
-        departamentoSeleccionado={getDepartamentoParaExportar()}
-        moduleName="inventario"
-        filePrefix="inventario"
-      />
+      {/* Modal de exportación */}
+      {showExportModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50"
+             style={{
+               backgroundColor: "rgba(0, 0, 0, 0.3)",
+               backdropFilter: "blur(2px)"
+             }}>
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Exportar Inventario</h2>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="text-gray-500 hover:text-red-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
-      {/* Diálogo de confirmación */}
-      {confirmDialog.isOpen && (
-        <div
-          className="fixed inset-0 flex items-center justify-center z-50"
-          style={{
-            backgroundColor: "rgba(0, 0, 0, 0.3)",
-            backdropFilter: "blur(2px)"
-          }}
-        >
-          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
-            <h3 className="text-lg font-bold mb-4">{confirmDialog.title}</h3>
-            <p className="text-gray-600 mb-6">{confirmDialog.message}</p>
+            {/* Vista previa de datos */}
+            <div className="mb-6 max-h-60 overflow-y-auto border rounded">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    {exportData.length > 0 && Object.keys(exportData[0]).map((header) => (
+                      <th key={header} className="py-2 px-4 text-left font-medium">
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {exportData.length > 0 ? (
+                    exportData.map((row, rowIndex) => (
+                      <tr key={rowIndex} className="border-t border-gray-200">
+                        {Object.values(row).map((cell, cellIndex) => (
+                          <td key={cellIndex} className="py-2 px-4">
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="8" className="py-4 text-center text-gray-500">
+                        No hay datos para exportar
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Se exportarán {exportData.length} items {selectedItems.length > 0 ? 'seleccionados' : 'filtrados'}.
+            </p>
+
+            {/* Información sobre qué se exportará */}
+            <div className="mb-6 bg-blue-50 p-4 rounded-md text-blue-700 text-sm">
+              <p className="font-medium mb-1">Información sobre la exportación:</p>
+              <ul className="list-disc list-inside">
+                <li>Se exportarán {exportData.length} items en formato XLSX (Excel)</li>
+                <li>Las columnas se ajustarán automáticamente para mejor visualización</li>
+                <li>
+                  {selectedItems.length > 0 
+                    ? `Has seleccionado ${selectedItems.length} items para exportar` 
+                    : 'Se exportarán todos los items visibles según los filtros aplicados'}
+                </li>
+                <li>El archivo incluirá todos los campos mostrados en la vista previa</li>
+              </ul>
+            </div>
+            
+            {/* Botones de acción */}
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setConfirmDialog({ isOpen: false, title: "", message: "", onConfirm: () => {} })}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100"
+                onClick={() => setShowExportModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 cursor-pointer"
+                disabled={isGeneratingExcel}
               >
                 Cancelar
               </button>
+              
+              {/* Botón descargar */}
               <button
-                onClick={confirmDialog.onConfirm}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                onClick={downloadExcel}
+                disabled={isGeneratingExcel || exportData.length === 0}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
               >
-                Confirmar
+                {isGeneratingExcel ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Generando...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4" />
+                    <span>Descargar Excel</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Diálogo de confirmación */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50"
+             style={{
+               backgroundColor: "rgba(0, 0, 0, 0.3)",
+               backdropFilter: "blur(2px)"
+             }}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-lg font-bold mb-2">{confirmDialog.title}</h3>
+            <p className="text-gray-600 mb-4">{confirmDialog.message}</p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog({ ...confirmDialog, isOpen: false });
+                }}
+              >
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }
