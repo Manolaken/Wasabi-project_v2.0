@@ -13,7 +13,7 @@ export default function Button({
   
   // Definir variantes de estilo
   const variants = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:text-gray-200",
+    primary: "bg-red-500 text-white hover:bg-red-700 disabled:bg-gray-400 disabled:text-gray-200",
     secondary: "bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-400 disabled:text-gray-200",
     outline: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400",
     danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-gray-400 disabled:text-gray-200",

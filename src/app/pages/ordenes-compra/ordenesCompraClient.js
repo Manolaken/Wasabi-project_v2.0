@@ -924,6 +924,35 @@ export default function OrdenesCompraClient({
         <h2 className="text-xl text-gray-400">Departamento {departamento}</h2>
       </div>
 
+      {/* Botones de acción */}
+      <div className="flex justify-between mt-4">
+        <div className="flex gap-4">
+          {canEdit && <Button onClick={handleOpenAddModal}>Nueva Orden</Button>}
+          <Button
+            variant="export"
+            onClick={handleExportClick}
+            disabled={filteredOrdenes.length === 0}
+          >
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              <span>Exportar</span>
+            </div>
+          </Button>
+        
+
+          {canEdit && (
+          <Button
+            onClick={handleEliminarOrdenes}
+            disabled={selectedOrdenes.length === 0 || isLoading}
+          >
+            {isLoading
+              ? "Procesando..."
+              : `Eliminar ${selectedOrdenes.length > 0 ? `(${selectedOrdenes.length})` : ""}`}
+          </Button>
+          )}
+        </div>
+      </div>
+
       {/* Filtros de fecha */}
       <div className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="relative">
@@ -1289,33 +1318,6 @@ export default function OrdenesCompraClient({
         </div>
       </div>
 
-      {/* Botones de acción */}
-      <div className="flex justify-between mt-4">
-        <div className="flex gap-4">
-          {canEdit && <Button onClick={handleOpenAddModal}>Nueva Orden</Button>}
-
-          <Button
-            onClick={handleExportClick}
-            disabled={filteredOrdenes.length === 0}
-          >
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              <span>Exportar a Excel</span>
-            </div>
-          </Button>
-        </div>
-
-        {canEdit && (
-          <Button
-            onClick={handleEliminarOrdenes}
-            disabled={selectedOrdenes.length === 0 || isLoading}
-          >
-            {isLoading
-              ? "Procesando..."
-              : `Eliminar ${selectedOrdenes.length > 0 ? `(${selectedOrdenes.length})` : ""}`}
-          </Button>
-        )}
-      </div>
 
       {/* Modal para añadir/editar orden */}
       <OrdenModal
