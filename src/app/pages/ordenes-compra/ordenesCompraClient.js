@@ -919,13 +919,15 @@ export default function OrdenesCompraClient({
       />
 
       {/* Encabezado */}
-      <div className="mb-4">
-        <h1 className="text-3xl font-bold">Orden de Compra</h1>
-        <h2 className="text-xl text-gray-400">Departamento {departamento}</h2>
-      </div>
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">Orden de Compra</h1>
+          <h2 className="text-xl text-gray-400">Departamento {departamento}
+          </h2>
+        </div>
 
       {/* Botones de acción */}
-      <div className="flex justify-between mt-4">
+        
         <div className="flex gap-4">
           {canEdit && <Button onClick={handleOpenAddModal}>Nueva Orden</Button>}
           <Button

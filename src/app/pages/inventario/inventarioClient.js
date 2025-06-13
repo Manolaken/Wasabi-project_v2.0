@@ -343,7 +343,7 @@ export default function InventarioClient({
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 h-[calc(100vh-8rem)] flex flex-col">
       {/* Componentes de notificación */}
       {notificationComponents}
 
@@ -423,7 +423,7 @@ export default function InventarioClient({
               <option key={`${proveedor.idProveedor}-${index}`} value={proveedor.Nombre}>
                 {proveedor.Nombre}
               </option>
-))}
+            ))}
           </select>
           <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
         </div>
