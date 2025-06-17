@@ -3,9 +3,9 @@ import Link from "next/link"
 import { getDepartamentos } from "@/app/api/functions/departamentos"
 
 const departmentImages = {
-  Informática: "/images/informatica.jpg",
-  Robótica: "/images/robotica.jpg",
-  Mecánica: "/images/mecanica.jpg",
+  Informatica: "/images/informatica.jpg",
+  Robotica: "/images/robotica.jpg",
+  Mecanica: "/images/mecanica.jpg",
   Electricidad: "/images/electricidad.jpg",
   Automoción: "/images/automocion.webp",
 }
