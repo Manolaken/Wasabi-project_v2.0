@@ -671,9 +671,27 @@ export default function ProveedoresClient({
       />
 
       {/* Encabezado - Reducimos el margen inferior */}
-      <div className="mb-4">
-        <h1 className="text-3xl font-bold">Proveedores</h1>
-        <h2 className="text-xl text-gray-400">Departamento {departamento}</h2>
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">Proveedores</h1>
+          <h2 className="text-xl text-gray-400">Departamento {departamento}</h2>
+        </div>
+
+        {/* Botones de acción - Ajustamos los márgenes y usamos flex justify-between */}
+        <div className="flex gap-4">
+          {canEdit && <Button onClick={handleOpenAddModal}>Nuevo Proveedor</Button>}
+          <div></div> {/* Espaciador para mantener el layout */}
+          {canEdit && (
+            <Button
+              onClick={handleEliminarProveedores}
+              disabled={selectedProveedores.length === 0 || isLoading}
+            >
+              {isLoading
+                ? "Procesando..."
+                : `Eliminar ${selectedProveedores.length > 0 ? `(${selectedProveedores.length})` : ""}`}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filtros y búsqueda - Reducimos el margen inferior */}
@@ -811,21 +829,7 @@ export default function ProveedoresClient({
         </div>
       </div>
 
-      {/* Botones de acción - Ajustamos los márgenes y usamos flex justify-between */}
-      <div className="flex justify-between mt-4">
-        {canEdit && <Button onClick={handleOpenAddModal}>Nuevo Proveedor</Button>}
-        <div></div> {/* Espaciador para mantener el layout */}
-        {canEdit && (
-          <Button
-            onClick={handleEliminarProveedores}
-            disabled={selectedProveedores.length === 0 || isLoading}
-          >
-            {isLoading
-              ? "Procesando..."
-              : `Eliminar ${selectedProveedores.length > 0 ? `(${selectedProveedores.length})` : ""}`}
-          </Button>
-        )}
-      </div>
+      
 
       {/* Modal para añadir/editar proveedor */}
       {showModal && (
